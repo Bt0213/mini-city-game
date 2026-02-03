@@ -36,7 +36,37 @@ const createScene = () => {
     box.position.y = 2;
     box.scaling.y = Math.random() * 5 + 1;
   }
+// CAR
+  const car = BABYLON.MeshBuilder.CreateBox(
+    "car",
+    { width: 2, height: 1, depth: 4 },
+    scene
+  );
+  car.position.y = 0.5;
 
+  camera.parent = car;
+
+  const inputMap = {};
+  scene.actionManager = new BABYLON.ActionManager(scene);
+  scene.actionManager.registerAction(
+    new BABYLON.ExecuteCodeAction(
+      BABYLON.ActionManager.OnKeyDownTrigger,
+      evt => inputMap[evt.sourceEvent.key] = true
+    )
+  );
+  scene.actionManager.registerAction(
+    new BABYLON.ExecuteCodeAction(
+      BABYLON.ActionManager.OnKeyUpTrigger,
+      evt => inputMap[evt.sourceEvent.key] = false
+    )
+  );
+
+  scene.onBeforeRenderObservable.add(() => {
+    if (inputMap["w"]) car.moveWithCollisions(car.forward.scale(0.3));
+    if (inputMap["s"]) car.moveWithCollisions(car.forward.scale(-0.3));
+    if (inputMap["a"]) car.rotation.y -= 0.04;
+    if (inputMap["d"]) car.rotation.y += 0.04;
+  });
   return scene;
 };
 
