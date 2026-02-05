@@ -1,84 +1,92 @@
 <!DOCTYPE html>
 <html>
 <head>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Mini City Game</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Mini City Life</title>
 
 <style>
-body {
-  margin: 0;
-  overflow: hidden;
-  background: #87ceeb;
-  touch-action: none;
-  font-family: Arial;
+html,body{
+  margin:0;
+  padding:0;
+  overflow:hidden;
+  touch-action:none;
+  font-family:Arial;
+}
+#hud{
+  position:fixed;
+  top:10px;
+  left:10px;
+  background:rgba(0,0,0,0.65);
+  color:#fff;
+  padding:10px;
+  border-radius:8px;
+  z-index:100;
+}
+#fuelBar{
+  width:120px;
+  height:10px;
+  background:#444;
+  margin-top:5px;
+}
+#fuel{
+  height:10px;
+  background:lime;
+  width:100%;
+}
+#modeBtn{
+  position:fixed;
+  bottom:20px;
+  left:20px;
+  padding:12px;
+  background:#000;
+  color:#fff;
+  border-radius:8px;
+  z-index:100;
 }
 
-#hud {
-  position: fixed;
-  top: 10px;
-  left: 10px;
-  color: white;
-  background: rgba(0,0,0,0.6);
-  padding: 10px;
-  z-index: 100;
+#world{
+  position:relative;
+  width:2600px;
+  height:2600px;
+  background:#4caf50;
+  transition:filter 1s;
 }
 
-#modeBtn {
-  position: fixed;
-  bottom: 20px;
-  left: 20px;
-  padding: 10px;
-  background: black;
-  color: white;
-  z-index: 100;
+.road{position:absolute;background:#333;}
+.h{width:2600px;height:90px;}
+.v{width:90px;height:2600px;}
+
+#player{
+  position:absolute;
+  width:48px;
+  height:48px;
+  background-size:cover;
+  z-index:10;
 }
 
-#game {
-  position: relative;
-  width: 2000px;
-  height: 2000px;
-  background: #4caf50;
+.coin{
+  position:absolute;
+  width:22px;
+  height:22px;
+  background:url("https://i.imgur.com/O7RZ0nG.png");
+  background-size:cover;
 }
 
-.road {
-  position: absolute;
-  background: #333;
+.station{
+  position:absolute;
+  width:60px;
+  height:60px;
+  background:url("https://i.imgur.com/8FQyKQF.png");
+  background-size:cover;
 }
 
-.building {
-  position: absolute;
-  width: 120px;
-  height: 120px;
-  background: #666;
-}
-
-.ad {
-  position: absolute;
-  bottom: 5px;
-  left: 5px;
-  right: 5px;
-  height: 22px;
-  background: yellow;
-  font-size: 11px;
-  text-align: center;
-  line-height: 22px;
-}
-
-.coin {
-  position: absolute;
-  width: 20px;
-  height: 20px;
-  background: gold;
-  border-radius: 50%;
-}
-
-#player {
-  position: absolute;
-  width: 40px;
-  height: 40px;
-  background: red;
-  border-radius: 6px;
-  z-index: 10;
+.npc{
+  position:absolute;
+  width:40px;
+  height:40px;
+  background:url("https://i.imgur.com/7QZ6F5L.png");
+  background-size:cover;
 }
 </style>
 </head>
@@ -87,115 +95,139 @@ body {
 
 <div id="hud">
   Coins: <span id="coins">0</span><br>
-  Mission: Collect 5 coins
+  Mission: <span id="mission">Collect 10 coins</span>
+  <div id="fuelBar"><div id="fuel"></div></div>
 </div>
 
-<button id="modeBtn">🚗 Car Mode</button>
+<button id="modeBtn">🚗 Enter Car</button>
 
-<div id="game">
+<div id="world">
   <div id="player"></div>
 </div>
 
+<audio id="coinSound" src="https://assets.mixkit.co/sfx/preview/mixkit-arcade-coin-216.wav"></audio>
+<audio id="completeSound" src="https://assets.mixkit.co/sfx/preview/mixkit-achievement-bell-600.wav"></audio>
+
 <script>
-let game = document.getElementById("game");
-let player = document.getElementById("player");
-let coinsUI = document.getElementById("coins");
-let modeBtn = document.getElementById("modeBtn");
+const world=document.getElementById("world");
+const player=document.getElementById("player");
+const coinsUI=document.getElementById("coins");
+const missionUI=document.getElementById("mission");
+const fuelUI=document.getElementById("fuel");
+const modeBtn=document.getElementById("modeBtn");
+const coinSound=document.getElementById("coinSound");
+const completeSound=document.getElementById("completeSound");
 
-let px = 500, py = 500;
-let speed = 2;
-let mode = "car";
-let coins = 0;
+let x=1300,y=1300,vx=0,vy=0;
+let coins=0,fuel=100;
+let mode="walk";
+let missionTarget=10;
 
-player.style.left = px + "px";
-player.style.top = py + "px";
+const sprites={
+  walk:"https://i.imgur.com/YW7zZpK.png",
+  car:"https://i.imgur.com/7QZ6F5L.png",
+  plane:"https://i.imgur.com/Jy0ZK9N.png"
+};
 
-/* ROADS */
-for (let i = 0; i < 6; i++) {
-  let r = document.createElement("div");
-  r.className = "road";
-  r.style.width = "2000px";
-  r.style.height = "80px";
-  r.style.top = (i * 300 + 200) + "px";
-  game.appendChild(r);
+player.style.backgroundImage=`url(${sprites.walk})`;
+
+for(let i=0;i<6;i++){
+  let r=document.createElement("div");
+  r.className="road h";
+  r.style.top=(300+i*350)+"px";
+  world.appendChild(r);
+}
+for(let i=0;i<6;i++){
+  let r=document.createElement("div");
+  r.className="road v";
+  r.style.left=(300+i*350)+"px";
+  world.appendChild(r);
 }
 
-/* BUILDINGS */
-for (let i = 0; i < 12; i++) {
-  let b = document.createElement("div");
-  b.className = "building";
-  b.style.left = Math.random()*1800 + "px";
-  b.style.top = Math.random()*1800 + "px";
+function spawnCoin(){
+  let c=document.createElement("div");
+  c.className="coin";
+  c.style.left=Math.random()*2400+"px";
+  c.style.top=Math.random()*2400+"px";
+  world.appendChild(c);
+}
+for(let i=0;i<15;i++)spawnCoin();
 
-  let ad = document.createElement("div");
-  ad.className = "ad";
-  ad.innerText = "Sponsored";
+let station=document.createElement("div");
+station.className="station";
+station.style.left="1200px";
+station.style.top="600px";
+world.appendChild(station);
 
-  b.appendChild(ad);
-  game.appendChild(b);
+/* NPC traffic */
+for(let i=0;i<6;i++){
+  let n=document.createElement("div");
+  n.className="npc";
+  n.style.left=(400+i*300)+"px";
+  n.style.top="350px";
+  world.appendChild(n);
+  let nx=400+i*300;
+  setInterval(()=>{nx+=1;if(nx>2500)nx=0;n.style.left=nx+"px";},30);
 }
 
-/* COINS */
-function spawnCoin() {
-  let c = document.createElement("div");
-  c.className = "coin";
-  c.style.left = Math.random()*1800 + "px";
-  c.style.top = Math.random()*1800 + "px";
-  game.appendChild(c);
-}
-for (let i = 0; i < 10; i++) spawnCoin();
-
-/* TOUCH MOVE */
-let tx, ty;
-document.addEventListener("touchstart", e => {
-  tx = e.touches[0].clientX;
-  ty = e.touches[0].clientY;
+let tx,ty;
+document.addEventListener("touchstart",e=>{
+  tx=e.touches[0].clientX;
+  ty=e.touches[0].clientY;
+});
+document.addEventListener("touchmove",e=>{
+  vx+=(e.touches[0].clientX-tx)*0.03;
+  vy+=(e.touches[0].clientY-ty)*0.03;
+  tx=e.touches[0].clientX;
+  ty=e.touches[0].clientY;
 });
 
-document.addEventListener("touchmove", e => {
-  let dx = e.touches[0].clientX - tx;
-  let dy = e.touches[0].clientY - ty;
+let day=true;
+setInterval(()=>{
+  day=!day;
+  world.style.filter=day?"brightness(1)":"brightness(0.6)";
+},20000);
 
-  px += dx * speed * (mode === "plane" ? 1.5 : 1);
-  py += dy * speed * (mode === "plane" ? 1.5 : 1);
+function update(){
+  let max=mode==="walk"?2:mode==="car"?4:6;
+  vx*=0.9;vy*=0.9;
+  if(fuel>0){
+    x+=Math.max(-max,Math.min(max,vx));
+    y+=Math.max(-max,Math.min(max,vy));
+    if(mode!=="walk")fuel-=0.02;
+  }
+  fuel=Math.max(0,fuel);
+  fuelUI.style.width=fuel+"%";
 
-  player.style.left = px + "px";
-  player.style.top = py + "px";
+  player.style.left=x+"px";
+  player.style.top=y+"px";
+  world.style.transform=`translate(${-x+innerWidth/2}px,${-y+innerHeight/2}px)`;
 
-  game.style.transform =
-    `translate(${-px + innerWidth/2}px, ${-py + innerHeight/2}px)`;
-
-  checkCoins();
-
-  tx = e.touches[0].clientX;
-  ty = e.touches[0].clientY;
-});
-
-/* COIN COLLISION */
-function checkCoins() {
-  document.querySelectorAll(".coin").forEach(c => {
-    let cx = c.offsetLeft;
-    let cy = c.offsetTop;
-    if (Math.abs(px - cx) < 25 && Math.abs(py - cy) < 25) {
-      c.remove();
-      coins++;
-      coinsUI.innerText = coins;
+  document.querySelectorAll(".coin").forEach(c=>{
+    if(Math.abs(x-c.offsetLeft)<30 && Math.abs(y-c.offsetTop)<30){
+      c.remove();coins++;coinsUI.textContent=coins;
+      coinSound.play();
+      if(navigator.vibrate)navigator.vibrate(40);
       spawnCoin();
+      if(coins>=missionTarget){
+        completeSound.play();
+        missionTarget+=10;
+        missionUI.textContent="Collect "+missionTarget+" coins";
+      }
     }
   });
-}
 
-/* MODE SWITCH */
-modeBtn.onclick = () => {
-  if (mode === "car") {
-    mode = "plane";
-    player.style.background = "blue";
-    modeBtn.innerText = "✈️ Plane Mode";
-  } else {
-    mode = "car";
-    player.style.background = "red";
-    modeBtn.innerText = "🚗 Car Mode";
+  if(Math.abs(x-1200)<50 && Math.abs(y-600)<50){
+    fuel=100;
   }
+  requestAnimationFrame(update);
+}
+update();
+
+modeBtn.onclick=()=>{
+  if(mode==="walk"){mode="car";player.style.backgroundImage=`url(${sprites.car})`;modeBtn.textContent="✈️ Fly";}
+  else if(mode==="car"){mode="plane";player.style.backgroundImage=`url(${sprites.plane})`;modeBtn.textContent="🚶 Walk";}
+  else{mode="walk";player.style.backgroundImage=`url(${sprites.walk})`;modeBtn.textContent="🚗 Enter Car";}
 };
 </script>
 
